@@ -20,9 +20,11 @@ The Alfresco module subsystem detects `module.properties` on startup and registe
 
 ## Configuration
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `adf.downloadmanager.streaming.bufferBytes` | `4194304` (4 MB) | Size of the reusable copy buffer, per active download. Set it in `alfresco-global.properties` or as a `-D` system property (e.g. `-Dadf.downloadmanager.streaming.bufferBytes=1048576`). |
+| Property | Default |
+|----------|---------|
+| `adf.downloadmanager.streaming.bufferBytes` | `4194304` (4 MB) |
+
+>  Size of the reusable copy buffer, per active download. Set it in `alfresco-global.properties` or as a `-D` system property (e.g. `-Dadf.downloadmanager.streaming.bufferBytes=1048576`)
 
 The buffer is allocated once per in-flight download and reused for the whole transfer, so peak heap for streaming is roughly `bufferBytes × concurrent downloads`, independent of file size. Tuning guidance:
 
