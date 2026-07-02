@@ -1,0 +1,19 @@
+<webscript>
+  <shortname>Streaming content download (HEAD)</shortname>
+  <description>
+    HEAD variant of the streaming download endpoint: returns Content-Length,
+    Accept-Ranges: bytes and ETag with no body, for the pre-flight probe and
+    resume guard. Bound to the same controller as the GET descriptor; the
+    controller emits headers only for HEAD.
+  </description>
+  <url>/adf-download-manager/download/{nodeId}?attachment={attachment?}</url>
+  <format default="">argument</format>
+  <authentication>user</authentication>
+  <method>HEAD</method>
+  <transaction>
+    <!-- HEAD only resolves metadata (no body), but keep the transaction model
+         identical to GET: the controller opens its own short read-only txn. -->
+    none
+  </transaction>
+  <lifecycle>internal</lifecycle>
+</webscript>

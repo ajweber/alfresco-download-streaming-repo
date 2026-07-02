@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.alfresco.downloadmanager</groupId>
+  <artifactId>alfresco-download-streaming-repo</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+  <name>ADF Download Manager — Streaming Download Repository Addon</name>
+  <description>
+    Headless ACS repository addon exposing a download endpoint that streams node
+    content from the content store honouring HTTP Range, so 4 GB+ files download
+    without the repository allocating the whole file in memory.
+  </description>
+  <url>https://github.com/aborroy/alfresco-download-streaming-repo</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <organization>
+    <name>Hyland Software, Inc.</name>
+    <url>https://www.hyland.com</url>
+  </organization>
+
+  <scm>
+    <url>https://github.com/aborroy/alfresco-download-streaming-repo</url>
+    <connection>scm:git:https://github.com/aborroy/alfresco-download-streaming-repo.git</connection>
+    <developerConnection>scm:git:git@github.com:aborroy/alfresco-download-streaming-repo.git</developerConnection>
+  </scm>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Alfresco Content Services platform BOM version; aligned with ACS 26.1. -->
+    <alfresco.platform.version>23.2.1</alfresco.platform.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.alfresco</groupId>
+        <artifactId>acs-community-packaging</artifactId>
+        <version>${alfresco.platform.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- Repository platform API: NodeService, ContentService, web scripts.
+         Provided by the running ACS — not bundled in the addon JAR. -->
+    <dependency>
+      <groupId>org.alfresco</groupId>
+      <artifactId>alfresco-repository</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.alfresco.surf</groupId>
+      <artifactId>spring-webscripts</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <!-- ACS 23.x+/26.1 runs on Tomcat 10+ (Jakarta EE); Surf web scripts expose
+         jakarta.servlet types. Provided by the running ACS, never bundled. -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>6.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Test only. -->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <repositories>
+    <repository>
+      <id>alfresco-public</id>
+      <url>https://artifacts.alfresco.com/nexus/content/groups/public</url>
+    </repository>
+  </repositories>
+
+  <build>
+    <finalName>alfresco-download-streaming-repo-${project.version}</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

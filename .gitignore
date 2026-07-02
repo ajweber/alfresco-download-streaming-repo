@@ -1,0 +1,20 @@
+# Maven build output
+target/
+
+# macOS
+.DS_Store
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# Logs / temp
+*.log
+*.tmp

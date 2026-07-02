@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC '-//SPRING//DTD BEAN//EN' 'http://www.springframework.org/dtd/spring-beans.dtd'>
+<beans>
+
+  <!--
+    Shared copy engine. Stateless (the copy buffer is allocated per call), so a
+    single instance is safely reused across all requests and across the GET/HEAD
+    controller beans below.
+
+    Buffer size is configurable via alfresco-global.properties:
+      adf.downloadmanager.streaming.bufferBytes=4194304   (default: 4 MB)
+    Larger buffers reduce syscalls per download; smaller buffers cut heap use
+    when many downloads run concurrently (each active download holds one buffer).
+  -->
+  <bean id="adf.downloadmanager.streamCopier" class="org.alfresco.downloadmanager.StreamCopier">
+    <constructor-arg value="${adf.downloadmanager.streaming.bufferBytes:4194304}"/>
+  </bean>
+
+  <!--
+    Java-backed web script controller for the streaming download endpoint.
+    Bean id convention: webscript.<desc-path>.<name>.<method>
+    matching templates/webscripts/org/alfresco/downloadmanager/streaming-download.get.desc.xml
+  -->
+  <bean id="webscript.org.alfresco.downloadmanager.streaming-download.get"
+        class="org.alfresco.downloadmanager.StreamingDownloadWebScript">
+    <property name="nodeService" ref="NodeService"/>
+    <property name="contentService" ref="ContentService"/>
+    <property name="permissionService" ref="PermissionService"/>
+    <property name="transactionService" ref="TransactionService"/>
+    <property name="streamCopier" ref="adf.downloadmanager.streamCopier"/>
+  </bean>
+
+  <!--
+    HEAD variant, same controller. Surf rejects HEAD on a GET-only descriptor
+    with 405, so a dedicated HEAD descriptor + bean is required. The controller
+    detects the real method and writes headers only (no body) for HEAD.
+  -->
+  <bean id="webscript.org.alfresco.downloadmanager.streaming-download.head"
+        class="org.alfresco.downloadmanager.StreamingDownloadWebScript">
+    <property name="nodeService" ref="NodeService"/>
+    <property name="contentService" ref="ContentService"/>
+    <property name="permissionService" ref="PermissionService"/>
+    <property name="transactionService" ref="TransactionService"/>
+    <property name="streamCopier" ref="adf.downloadmanager.streamCopier"/>
+  </bean>
+
+</beans>

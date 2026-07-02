@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE beans PUBLIC '-//SPRING//DTD BEAN//EN' 'http://www.springframework.org/dtd/spring-beans.dtd'>
+<beans>
+
+  <!-- Auto-loaded for this module; pulls in the web script controller bean. -->
+  <import resource="classpath:alfresco/module/alfresco-download-streaming-repo/context/webscript-context.xml"/>
+
+</beans>

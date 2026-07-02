@@ -1,0 +1,24 @@
+<webscript>
+  <shortname>Streaming content download</shortname>
+  <description>
+    Streams node content straight from the content store in bounded buffers,
+    honouring HTTP Range, so files of any size download without the repository
+    allocating the whole file in memory.
+  </description>
+  <!-- {nodeId} is the bare node UUID, matching the stock content API; the store
+       defaults to workspace://SpacesStore. attachment defaults to true. -->
+  <url>/adf-download-manager/download/{nodeId}?attachment={attachment?}</url>
+  <format default="">argument</format>
+  <authentication>user</authentication>
+  <!-- Container routes HEAD to this same GET handler; the controller emits
+       headers only for HEAD (Content-Length, Accept-Ranges, ETag). -->
+  <method>GET</method>
+  <transaction>
+    <!-- No framework-managed transaction: a multi-GB body transfer must not pin
+         a repository transaction / DB connection for its whole duration. The
+         controller opens its own SHORT read-only transaction just to resolve the
+         node, permission and content reader, then streams the body outside it. -->
+    none
+  </transaction>
+  <lifecycle>internal</lifecycle>
+</webscript>
