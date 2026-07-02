@@ -124,7 +124,7 @@ NODE_ID=$(curl -su admin:admin \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['entry']['id'])")
 ```
 
-### HEAD — verify the addon is active
+### HEAD - verify the addon is active
 
 ```sh
 curl -sI -u admin:admin \
@@ -148,7 +148,7 @@ curl -su admin:admin \
 wc -c /tmp/downloaded.bin
 ```
 
-### Ranged request — first 64 MB chunk
+### Ranged request - first 64 MB chunk
 
 ```sh
 curl -su admin:admin \
@@ -160,7 +160,7 @@ curl -su admin:admin \
 wc -c /tmp/chunk0.bin
 ```
 
-### Resume simulation — second chunk
+### Resume simulation - second chunk
 
 ```sh
 curl -su admin:admin \
@@ -172,7 +172,7 @@ cat /tmp/chunk0.bin /tmp/chunk1.bin > /tmp/reassembled.bin
 wc -c /tmp/reassembled.bin   # should equal original size
 ```
 
-### Suffix range — last 1 MB
+### Suffix range - last 1 MB
 
 ```sh
 curl -su admin:admin \
@@ -267,7 +267,7 @@ Traefik streams bodies by default (no buffering unless a `buffering` middleware
 is attached), so the main things are timeouts and not adding compression:
 
 ```yaml
-# Static config — generous responding timeouts for long transfers.
+# Static config - generous responding timeouts for long transfers.
 entryPoints:
   web:
     address: ":8080"
@@ -279,7 +279,7 @@ entryPoints:
 ```
 
 ```yaml
-# Dynamic config / labels — route to ACS with NO buffering or compress middleware.
+# Dynamic config / labels - route to ACS with NO buffering or compress middleware.
 # (Simply omit `buffering` and `compress` middlewares from this router.)
 labels:
   - "traefik.http.routers.acs.rule=PathPrefix(`/alfresco`)"
@@ -298,9 +298,9 @@ The endpoint serves standard single-range `206` responses, so any range-aware cl
     "http://ACS_HOST/alfresco/s/adf-download-manager/download/${NODE_ID}"
   ```
   `curl -C -` issues a `Range` request from the current local file size; the addon replies `206` from that offset.
-- **Parallel segmented download** for higher throughput on high-latency links, with `aria2c` — it opens multiple concurrent single-range connections, which this endpoint already serves:
+- **Parallel segmented download** for higher throughput on high-latency links, with `aria2c` - it opens multiple concurrent single-range connections, which this endpoint already serves:
   ```sh
   aria2c -x 8 -s 8 --header "Authorization: Basic $(printf admin:admin | base64)" \
     "http://ACS_HOST/alfresco/s/adf-download-manager/download/${NODE_ID}"
   ```
-  (`-x`/`-s` = connections/splits. This is the HTTP analogue of the parallel-stream approach for gigantic files — no multipart-range response needed; the server stays simple and each connection is one plain `Range` request.)
+  (`-x`/`-s` = connections/splits. This is the HTTP analogue of the parallel-stream approach for gigantic files - no multipart-range response needed; the server stays simple and each connection is one plain `Range` request.)
