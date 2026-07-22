@@ -18,6 +18,11 @@ package org.alfresco.downloadmanager;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,6 +36,7 @@ import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.cmr.security.AccessStatus;
 import org.alfresco.service.cmr.security.PermissionService;
 import org.alfresco.service.transaction.TransactionService;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.extensions.webscripts.AbstractWebScript;
 import org.springframework.extensions.webscripts.Status;
 import org.springframework.extensions.webscripts.WebScriptException;
@@ -38,6 +44,7 @@ import org.springframework.extensions.webscripts.WebScriptRequest;
 import org.springframework.extensions.webscripts.WebScriptResponse;
 import org.springframework.extensions.webscripts.servlet.WebScriptServletRequest;
 import org.springframework.extensions.webscripts.servlet.WebScriptServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,13 +121,15 @@ public class StreamingDownloadWebScript extends AbstractWebScript {
         final String mimetype;
         final String fileName;
         final String etag;
+        final long lastModified;
 
-        ResolvedContent(ContentReader reader, long totalSize, String mimetype, String fileName, String etag) {
+        ResolvedContent(ContentReader reader, long totalSize, String mimetype, String fileName, String etag, long lastModified) {
             this.reader = reader;
             this.totalSize = totalSize;
             this.mimetype = mimetype;
             this.fileName = fileName;
             this.etag = etag;
+            this.lastModified = lastModified;
         }
     }
 
@@ -147,18 +156,53 @@ public class StreamingDownloadWebScript extends AbstractWebScript {
         String fileName = content.fileName;
         String etag = content.etag;
         ContentReader reader = content.reader;
+        long nodeModDate = content.lastModified;
 
         boolean attachment = !"false".equalsIgnoreCase(req.getParameter("attachment"));
         boolean head = isHeadRequest(req);
 
         // ── Common headers ─────────────────────────────────────────────────
-        res.setHeader("Accept-Ranges", "bytes");
-        res.setHeader("ETag", etag);
+        res.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
+        res.setHeader( HttpHeaders.ETAG, etag);
         res.setContentType(mimetype);
-        res.setHeader("Content-Disposition",
+        res.setHeader(HttpHeaders.CONTENT_DISPOSITION,
             (attachment ? "attachment" : "inline") + "; filename=\"" + sanitizeFileName(fileName) + "\"");
 
+        if (nodeModDate > 0L)
+        {
+            String nodeModTime = DateTimeFormatter.RFC_1123_DATE_TIME.format(Instant.ofEpochMilli(nodeModDate).atZone(ZoneOffset.UTC));
+            res.setHeader(HttpHeaders.LAST_MODIFIED, nodeModTime);
+        }
+
         HttpServletResponse servletRes = unwrap(res);
+
+        //if-modified-since handling
+        String ifModifiedSinceReq = req.getHeader(HttpHeaders.IF_MODIFIED_SINCE);
+        if (StringUtils.isNotBlank(ifModifiedSinceReq))
+        {
+            long reqModDate = 0L;
+
+            try {
+                reqModDate = ZonedDateTime.parse(ifModifiedSinceReq, DateTimeFormatter.RFC_1123_DATE_TIME)
+                        .toInstant()
+                        .toEpochMilli();
+            }
+            catch (DateTimeParseException ignored)
+            {
+                //ERROR: Could not convert requested If-Modified-Since string to date - default to returning content
+            }
+
+            if (nodeModDate < reqModDate)
+            {
+                if (servletRes != null) {
+                    servletRes.setStatus(Status.STATUS_NOT_MODIFIED); // Jakarta's Status has no named constant
+                } else {
+                    res.setStatus(Status.STATUS_NOT_MODIFIED);
+                }
+                setContentLength(res, servletRes, 0);
+                return;
+            }
+        }
 
         // ── Range handling ─────────────────────────────────────────────────
         // Tri-state: NONE → 200, SATISFIABLE → 206, UNSATISFIABLE → 416. This
@@ -173,7 +217,7 @@ public class StreamingDownloadWebScript extends AbstractWebScript {
             } else {
                 res.setStatus(416);
             }
-            res.setHeader("Content-Range", "bytes */" + totalSize);
+            res.setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + totalSize);
             setContentLength(res, servletRes, 0);
             return;
         }
@@ -193,7 +237,7 @@ public class StreamingDownloadWebScript extends AbstractWebScript {
             } else {
                 res.setStatus(Status.STATUS_PARTIAL_CONTENT);
             }
-            res.setHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + totalSize);
+            res.setHeader(HttpHeaders.CONTENT_RANGE, "bytes " + range.start + "-" + range.end + "/" + totalSize);
             setContentLength(res, servletRes, range.length());
             if (head) {
                 return;
@@ -267,7 +311,12 @@ public class StreamingDownloadWebScript extends AbstractWebScript {
             if (mime == null) {
                 mime = "application/octet-stream";
             }
-            return new ResolvedContent(r, r.getSize(), mime, resolveFileName(nodeRef), buildEtag(nodeRef, r));
+
+            //Can we not trust r.lastModified here for content mod date; isn't that all we care about??
+            Object modified = nodeService.getProperty(nodeRef, ContentModel.PROP_MODIFIED);
+            long lastMod = modifiedToMillis(modified);
+
+            return new ResolvedContent(r, r.getSize(), mime, resolveFileName(nodeRef), buildEtag(nodeRef, r, lastMod), lastMod);
         };
         // readOnly = true, requiresNew = false (join any ambient txn if present).
         return transactionService.getRetryingTransactionHelper().doInTransaction(callback, true, false);
@@ -323,9 +372,9 @@ public class StreamingDownloadWebScript extends AbstractWebScript {
      * approach folded the timestamp through a lossy 32-bit hash (needless
      * collision surface) and assumed {@code cm:modified} was always a {@link Date}.
      */
-    private String buildEtag(NodeRef nodeRef, ContentReader reader) {
-        Object modified = nodeService.getProperty(nodeRef, ContentModel.PROP_MODIFIED);
-        return formatEtag(nodeRef.getId(), reader.getSize(), modifiedToMillis(modified));
+    private String buildEtag(NodeRef nodeRef, ContentReader reader, long modified) {
+        //Object modified = nodeService.getProperty(nodeRef, ContentModel.PROP_MODIFIED);
+        return formatEtag(nodeRef.getId(), reader.getSize(), modified);
     }
 
     /**
